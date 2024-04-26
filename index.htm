@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensores</title>
+    <style>
+        .ti {
+            border: 0px;
+            margin: 2px;
+            font-size: 30pt;
+            padding: 5px;
+        }
+        body {
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+<div style="position: absolute; width: 100%; top: 5%; display: flex; justify-content: center;">
+    <button onclick="exportToExcel()">Exportar para Excel</button>
+</div>
+<div style="position: absolute; width: 100%; top: 20%; display: flex; flex-direction: column; align-items: center;">
+    <table border="1">
+        <tr>
+            <td>
+                <p style="color: white; background: rgb(223, 212, 90);" class="ti"><span>Horário</span></p>
+            </td>
+            <td>
+                <p style="color: white; background: blue;" class="ti"><span>Sensor azul</span></p>
+            </td>
+            <td>
+                <p style="color: white; background: rgb(105, 37, 193);" class="ti"><span>Sensor roxo</span></p>
+            </td>
+        </tr>
+        <tbody id="sensorTableBody">
+        </tbody>
+    </table>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/5.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/5.10.1/firebase-database.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+    // Configurações do Firebase
+    var config = {
+  apiKey: "AIzaSyC5WvJEibLKQM5_W_z2bX_Q_OHMDE3RE7c",
+  authDomain: "banco-de-dados-e77eb.firebaseapp.com",
+  databaseURL: "https://banco-de-dados-e77eb-default-rtdb.firebaseio.com",
+  projectId: "banco-de-dados-e77eb",
+  storageBucket: "banco-de-dados-e77eb.appspot.com",
+  messagingSenderId: "597423660776",
+  appId: "1:597423660776:web:ac11ace84c2a9292c0735d",
+  measurementId: "G-VX8ZLG9V29"
+    };
+    firebase.initializeApp(config);
+
+    // Referências aos nós do Firebase
+    var acelerometroRef = firebase.database().ref('Sensores/Sensor_acelerometro');
+    var magnetometroRef = firebase.database().ref('Sensores/Sensor_magnetometro');
+
+    // Observa adições de novos dados no nó do acelerômetro
+    acelerometroRef.on('child_added', function(snapshot) {
+        var horario = snapshot.key;
+        var valorAcelerometro = snapshot.val();
+        
+        // Variável de controle para o sensor roxo
+        var valorMagnetometro = null;
+        
+        // Lê os dados do sensor roxo
+        magnetometroRef.child(horario).once('value', function(magnetometroSnapshot) {
+            if (magnetometroSnapshot.exists()) {
+                valorMagnetometro = magnetometroSnapshot.val();
+                
+                // Adiciona a linha à tabela quando ambos os dados estiverem disponíveis
+                if (valorMagnetometro !== null) {
+                    addRowToTable(horario, valorAcelerometro, valorMagnetometro);
+                }
+            }
+        });
+        
+        // Observa mudanças nos dados do sensor roxo
+        magnetometroRef.child(horario).on('value', function(magnetometroSnapshot) {
+            if (magnetometroSnapshot.exists()) {
+                valorMagnetometro = magnetometroSnapshot.val();
+                
+                // Adiciona a linha à tabela quando ambos os dados estiverem disponíveis
+                if (valorMagnetometro !== null) {
+                    addRowToTable(horario, valorAcelerometro, valorMagnetometro);
+                }
+            }
+        });
+    });
+
+    // Função para adicionar uma nova linha à tabela
+    function addRowToTable(horario, valorAcelerometro, valorMagnetometro) {
+        var tbody = document.getElementById('sensorTableBody');
+        var newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td>${horario}</td>
+            <td>${valorAcelerometro}</td>
+            <td>${valorMagnetometro}</td>
+        `;
+        tbody.appendChild(newRow);
+    }
+
+    // Função para exportar os dados para Excel
+    function exportToExcel() {
+        // Seleciona a tabela
+        var table = document.querySelector("table");
+        
+        // Cria um objeto de planilha do Excel
+        var excel = new ExcelJS.Workbook();
+        var sheet = excel.addWorksheet('Sensores');
+        
+        // Preenche a planilha com os dados da tabela
+        var tableRows = table.querySelectorAll('tr');
+        tableRows.forEach(function(row) {
+            var rowData = [];
+            row.querySelectorAll('td').forEach(function(cell) {
+                rowData.push(cell.innerText);
+            });
+            sheet.addRow(rowData);
+        });
+        
+        // Salva o arquivo Excel
+        excel.xlsx.writeBuffer().then(function(buffer) {
+            saveAs(new Blob([buffer], { type: "application/octet-stream" }), "sensores.xlsx");
+        });
+    }
+</script>
+</body>
+</html>
